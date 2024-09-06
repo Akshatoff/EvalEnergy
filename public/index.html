@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Reimagined</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboard2@0.5.0/dist/chessboard2.min.css"
+        integrity="sha384-47VeTDpmy4yT21gKPXQcLQYQZwlmz27gEH5NTrOmTk3G/SGvMyltclOW/Q8uE+sL" crossorigin="anonymous">
+    <link rel="stylesheet" href="./style/style.css">
+</head>
+
+<body>
+    <div id="myBoard" style="width: 400px"></div>
+
+    <input type="number" name="val" id="eg">
+    <button id="evals">Submit</button>
+
+    <div class="popup">
+        <h1 id="winner"></h1>
+    </div>
+    <div id="player1-timer">Player 2 Time: 3:00</div>
+<br>
+<div id="player2-timer">Player 1 Time: 3:00</div>
+<br>
+<div id="player1-guess-timer">Player 1 Guess Timer: 60s</div>
+<br>
+<div id="player2-guess-timer">Player 2 Guess Timer: 60s</div>
+
+
+
+    <script src="https://unpkg.com/lenis@1.1.5/dist/lenis.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"
+        integrity="sha512-xRllwz2gdZciIB+AkEbeq+gVhX8VB8XsfqeFbUh+SzHlN96dEduwtTuVuc2u9EROlmW9+yhRlxjif66ORpsgVA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboard2@0.5.0/dist/chessboard2.min.js"
+        integrity="sha384-/KwQCjA1GWovZNV3QDVtvSMDzO4reGgarF/RqHipr7hIUElH3r5zNl9WEPPOBRIF"
+        crossorigin="anonymous"></script>
+
+    <script type="module" src="./script/chess.js"></script>
+</body>
+
+</html>
