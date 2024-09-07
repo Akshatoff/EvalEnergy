@@ -11,11 +11,11 @@ let initialGameState = {
     canMove: false,
     winningColor: 'black',
     guessTimers: {
-        player1: 60, // 60 seconds for guessing
-        player2: 60  // 60 seconds for guessing
+        player1: 60,
+        player2: 60
     },
     timers: {
-        player1: 180, // Initial time in seconds
+        player1: 180,
         player2: 180,
     },
     activePlayer: null,
@@ -25,20 +25,30 @@ let initialGameState = {
 
 let gameState = { ...initialGameState };
 
-let guesses = [];
 let players = {
     player1: { position: 'unset', guess: null },
     player2: { position: 'unset', guess: null },
 };
 
-// Decrement the guess timers every second
+let guessTimerInterval;
+let gameTimerInterval;
+
+function startGuessTimers() {
+    clearInterval(guessTimerInterval);
+    guessTimerInterval = setInterval(decrementGuessTimers, 1000);
+}
+
+function startGameTimers() {
+    clearInterval(gameTimerInterval);
+    gameTimerInterval = setInterval(decrementTimers, 1000);
+}
+
 function decrementGuessTimers() {
     for (const player in gameState.guessTimers) {
         if (players[player].guess === null && gameState.guessTimers[player] > 0) {
             gameState.guessTimers[player] -= 1;
 
             if (gameState.guessTimers[player] <= 0) {
-                // The other player wins if this player's guess timer reaches 0
                 const otherPlayer = player === 'player1' ? 'player2' : 'player1';
 
                 if (players[otherPlayer].guess !== null) {
@@ -52,7 +62,6 @@ function decrementGuessTimers() {
     }
 }
 
-// Function to check if both players have guessed and start the game timer
 function checkForBothGuesses() {
     if (players.player1.guess !== null && players.player2.guess !== null) {
         const eval = -2; // The actual evaluation
@@ -64,43 +73,42 @@ function checkForBothGuesses() {
             Math.abs(curr.guess - eval) < Math.abs(prev.guess - eval) ? curr : prev
         );
 
-        // Assign the winning position (black) to the winner of the guessing round
         players[closestPlayer.player].position = gameState.winningColor;
         const otherPlayer = closestPlayer.player === 'player1' ? 'player2' : 'player1';
         players[otherPlayer].position = gameState.winningColor === 'black' ? 'white' : 'black';
 
-        // Set the game state to allow moves and assign the starting player
         gameState.canMove = true;
-        gameState.activePlayer = closestPlayer.player; // The closest guesser starts the game
+        gameState.activePlayer = closestPlayer.player;
 
-        // Start the game timers immediately after both guesses
         startGameTimers();
 
         console.log(`Player ${closestPlayer.player} starts the game.`);
     }
 }
 
-// Start the game timers for the active player
-function startGameTimers() {
-    if (gameState.activePlayer) {
-        setInterval(decrementTimers, 1000); // Decrease the timer every second
-    }
-}
-
-// Decrement the active player's timer
 function decrementTimers() {
     if (gameState.activePlayer && gameState.canMove) {
         const player = gameState.activePlayer;
         gameState.timers[player] -= 1;
 
         if (gameState.timers[player] <= 0) {
-            // End the game if the active player's time runs out
             gameState.canMove = false;
-            gameState.winner = player === 'player1' ? 'player2' : 'player1'; // The other player wins
-            gameState.timeOut = true; // Flag to indicate a timeout
+            gameState.winner = player === 'player1' ? 'player2' : 'player1';
+            gameState.timeOut = true;
             console.log(`Player ${gameState.winner} wins by timeout.`);
         }
     }
+}
+
+function resetGame() {
+    clearInterval(guessTimerInterval);
+    clearInterval(gameTimerInterval);
+    gameState = JSON.parse(JSON.stringify(initialGameState));
+    players = {
+        player1: { position: 'unset', guess: null },
+        player2: { position: 'unset', guess: null },
+    };
+    startGuessTimers();
 }
 
 app.get('/game-state', (req, res) => {
@@ -133,10 +141,8 @@ app.post('/move', (req, res) => {
         gameState.moves.push(move);
         gameState.fen = fen;
 
-        // Add the 2-second increment
         gameState.timers[gameState.activePlayer] += 2;
 
-        // Switch the active player
         gameState.activePlayer = gameState.activePlayer === 'player1' ? 'player2' : 'player1';
     }
 
@@ -144,13 +150,12 @@ app.post('/move', (req, res) => {
 });
 
 app.post('/reset', (req, res) => {
-    gameState = { ...initialGameState };
-    guesses = [];
-    players = {
-        player1: { position: 'unset', guess: null },
-        player2: { position: 'unset', guess: null },
-    };
-    res.json({ success: true });
+    resetGame();
+    res.json({ 
+        success: true, 
+        gameState: gameState,
+        players: players
+    });
 });
 
 app.post('/submit-guess', (req, res) => {
@@ -159,12 +164,9 @@ app.post('/submit-guess', (req, res) => {
 
     if (player in players) {
         players[player].guess = guess;
-        guesses.push({ player, guess });
 
-        // Stop the guess timer for the player who submitted their guess
         gameState.guessTimers[player] = 0;
 
-        // Check if both players have guessed
         checkForBothGuesses();
 
         res.json({ success: true });
@@ -173,7 +175,7 @@ app.post('/submit-guess', (req, res) => {
     }
 });
 
-setInterval(decrementGuessTimers, 1000); // Decrement the guess timer every second
+resetGame(); // Initial game setup
 
 app.listen(8080, () => {
     console.log('Server is running on http://localhost:8080');

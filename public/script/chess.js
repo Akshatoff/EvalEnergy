@@ -24,20 +24,47 @@ resetGameState();
 window.addEventListener('beforeunload', resetGameState);
 
 submitButton.addEventListener("click", submitGuess);
-
 function resetGameState() {
   fetch('/reset', {
     method: 'POST',
   })
-  .then(response => response.json())
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  })
   .then(data => {
     if (data.success) {
-      fetchGameState();
+      gameState = data.gameState;
       canMove = false;
       playerColor = null;
+      game.reset();
+      board.start();
+      input.value = '';
+      input.disabled = false;
+      submitButton.disabled = false;
+      win.innerHTML = 'Game reset. Waiting for both players to guess...';
+      updateTimerDisplay(gameState.timers.player1, gameState.timers.player2);
+      updateGuessTimerDisplay(gameState.guessTimers.player1, gameState.guessTimers.player2);
+    } else {
+      throw new Error('Failed to reset game state');
     }
+  })
+  .catch(error => {
+    console.error('Error resetting game state:', error);
+    win.innerHTML = 'Error resetting game state. Please try again.';
   });
 }
+
+
+window.addEventListener('load', resetGameState);
+
+const resetButton = document.createElement('button');
+resetButton.textContent = 'Reset Game';
+resetButton.addEventListener('click', resetGameState);
+document.body.appendChild(resetButton);
+resetButton.style.display = 'none';
 
 function fetchGameState() {
   fetch('/game-state')
@@ -45,15 +72,13 @@ function fetchGameState() {
     .then(data => {
       gameState = data;
 
-      // Ensure that data.fen is a property, not a function
       if (typeof data.fen === 'string' && data.fen !== game.fen()) {
-        game.load(data.fen); // Load the FEN string into the game object
-        board.position(data.fen); // Set the board position using the FEN string
+        game.load(data.fen);
+        board.position(data.fen);
       }
       
       canMove = data.canMove;
 
-      // Update player color
       if (data.playerPositions) {
         playerColor = data.playerPositions[player];
         if (playerColor) {
@@ -61,22 +86,15 @@ function fetchGameState() {
         }
       }
 
-      // Update regular timers
       if (data.timers) {
         updateTimerDisplay(data.timers.player1, data.timers.player2);
       }
 
-      // Update guessing timers
       if (data.guessTimers) {
         updateGuessTimerDisplay(data.guessTimers.player1, data.guessTimers.player2);
       }
 
-      // Update player guesses or other status
-      if (data.playerGuesses) {
-        updateStatus(data.playerGuesses);
-      } else {
-        updateStatus({});
-      }
+      updateStatus(data.playerGuesses || {});
     })
     .catch(error => console.error('Fetch error:', error));
 }
@@ -92,9 +110,10 @@ function updateTimerDisplay(player1Time, player2Time) {
   const player1TimerElement = document.getElementById('player1-timer');
   const player2TimerElement = document.getElementById('player2-timer');
 
-  // Display player timers
-  player1TimerElement.textContent = `Player 1 Time: ${formatTime(player1Time)}`;
-  player2TimerElement.textContent = `Player 2 Time: ${formatTime(player2Time)}`;
+  if (player1TimerElement && player2TimerElement) {
+    player1TimerElement.textContent = `Player 1 Time: ${formatTime(player1Time)}`;
+    player2TimerElement.textContent = `Player 2 Time: ${formatTime(player2Time)}`;
+  }
 }
 
 function updateGuessTimerDisplay(player1GuessTime, player2GuessTime) {
@@ -107,9 +126,10 @@ function updateGuessTimerDisplay(player1GuessTime, player2GuessTime) {
   const player1GuessTimerElement = document.getElementById('player1-guess-timer');
   const player2GuessTimerElement = document.getElementById('player2-guess-timer');
 
-  // Display player guess timers
-  player1GuessTimerElement.textContent = `Player 1 Guess Timer: ${formatTime(player1GuessTime)}`;
-  player2GuessTimerElement.textContent = `Player 2 Guess Timer: ${formatTime(player2GuessTime)}`;
+  if (player1GuessTimerElement && player2GuessTimerElement) {
+    player1GuessTimerElement.textContent = `Player 1 Guess Timer: ${formatTime(player1GuessTime)}`;
+    player2GuessTimerElement.textContent = `Player 2 Guess Timer: ${formatTime(player2GuessTime)}`;
+  }
 }
 
 function onDragStart(dragStartEvt) {
@@ -181,35 +201,42 @@ function onDrop(dropEvt) {
 function submitGuess() {
   const guessValue = input.value;
 
+  if (!guessValue || isNaN(parseFloat(guessValue))) {
+    alert('Please enter a valid number for your guess.');
+    return;
+  }
+
   fetch('/submit-guess', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ player, guess: guessValue }),
+    body: JSON.stringify({ player, guess: parseFloat(guessValue) }),
   })
-  .then(response => response.json())
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  })
   .then(data => {
     if (data.success) {
       console.log(`Player ${player} guessed: ${guessValue}`);
-      if (data.result) {
-        console.log(`Player 1 position: ${data.result.player1}`);
-        console.log(`Player 2 position: ${data.result.player2}`);
-        console.log(`Winner of the guessing round: ${data.result.winner}`);
-        alert(`Player 1 is ${data.result.player1}, Player 2 is ${data.result.player2}. Winner of the guessing round: ${data.result.winner}`);
-        canMove = data.result.canMove;
-        playerColor = player === 'player1' ? data.result.player1 : data.result.player2;
-        board.orientation(playerColor);
-        updateStatus();
-      } else {
-        console.log('Waiting for other player to guess.');
-      }
+      win.innerHTML = `Your guess (${guessValue}) has been submitted. Waiting for the other player...`;
+      input.value = ''; // Clear the input field
+      input.disabled = true; // Disable the input field after submission
+      submitButton.disabled = true; // Disable the submit button after submission
     } else {
       console.error('Error submitting guess:', data.error);
+      win.innerHTML = `Error submitting guess: ${data.error}`;
     }
   })
-  .catch(error => console.error('Fetch error:', error));
+  .catch(error => {
+    console.error('Fetch error:', error);
+    win.innerHTML = `Error submitting guess: ${error.message}`;
+  });
 }
+
 
 function updateStatus(playerGuesses = {}) {
     if (!canMove) {
